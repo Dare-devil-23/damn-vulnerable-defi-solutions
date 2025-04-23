@@ -79,12 +79,14 @@ contract SimpleGovernance is ISimpleGovernance {
         return _actionCounter;
     }
 
+    event TimeChange(uint64 timeDelta);
+
     /**
      * @dev an action can only be executed if:
      * 1) it's never been executed before and
      * 2) enough time has passed since it was first proposed
      */
-    function _canBeExecuted(uint256 actionId) private view returns (bool) {
+    function _canBeExecuted(uint256 actionId) private  returns (bool) {
         GovernanceAction memory actionToExecute = _actions[actionId];
 
         if (actionToExecute.proposedAt == 0) return false;
@@ -93,6 +95,8 @@ contract SimpleGovernance is ISimpleGovernance {
         unchecked {
             timeDelta = uint64(block.timestamp) - actionToExecute.proposedAt;
         }
+
+        emit TimeChange(timeDelta);
 
         return actionToExecute.executedAt == 0 && timeDelta >= ACTION_DELAY_IN_SECONDS;
     }

